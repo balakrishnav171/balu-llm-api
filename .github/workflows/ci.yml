@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest httpx
+
+      - name: Run tests
+        env:
+          API_KEY: test-ci-key
+          LLM_BACKEND: ollama
+          OLLAMA_BASE_URL: http://localhost:11434
+          OLLAMA_MODEL: orca-mini
+        run: pytest tests/ -v --tb=short
+
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t balu-llm-api:ci .

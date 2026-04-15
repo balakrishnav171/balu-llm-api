@@ -1,0 +1,78 @@
+version: "3.9"
+
+# =============================================================================
+# Balu LLM API — Docker Compose
+#
+# Services:
+#   api     — FastAPI application (port 8000)
+#   ollama  — Local Ollama LLM server (port 11434)
+#
+# Usage:
+#   1. Copy .env.example to .env and set API_KEY
+#   2. docker compose up --build
+#   3. Pull the model:  docker compose exec ollama ollama pull orca-mini
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # API service
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: balu-llm-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Override Ollama URL to use the Docker service name
+      OLLAMA_BASE_URL: "http://ollama:11434"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - llm-net
+
+  # ---------------------------------------------------------------------------
+  # Ollama service
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: balu-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      # Ollama exposes a simple /api/tags endpoint
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - llm-net
+
+# ---------------------------------------------------------------------------
+# Volumes & Networks
+# ---------------------------------------------------------------------------
+volumes:
+  ollama_models:
+    driver: local
+
+networks:
+  llm-net:
+    driver: bridge
