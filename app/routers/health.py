@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.schemas.chat import HealthResponse
-from app.services.llm_service import get_llm_service
+from app.services.llm_service import LLMService, get_llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ router = APIRouter(tags=["Health"])
         503: {"description": "Service is in an error state"},
     },
 )
-async def health_check() -> JSONResponse:
+async def health_check(llm_service: LLMService = Depends(get_llm_service)) -> JSONResponse:
     """
     Ping the LLM backend and report overall health.
 
@@ -43,7 +43,6 @@ async def health_check() -> JSONResponse:
     - **degraded** — API is up but LLM backend is unreachable
     - **error** — unexpected exception during health check
     """
-    llm_service = get_llm_service()
 
     try:
         llm_reachable = await llm_service.ping()
